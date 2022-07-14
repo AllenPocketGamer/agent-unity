@@ -89,6 +89,10 @@ jobs:
   pack-to-unity3d-package:
     needs: [build-x86_64-linux, build-x86_64-windows, build-x86_64-macos, build-aarch64-macos]
     runs-on: ubuntu-latest
+    outputs:
+      pkg_name: ${{ steps.pkg_info.outputs.PKG_NAME }}
+      pkg_sha1: ${{ steps.pkg_info.outputs.PKG_SHA1 }}
+      pkg_version: ${{ steps.pkg_info.outputs.PKG_VERSION }}
     steps:
       - name: check out latest commit
         uses: actions/checkout@v3
@@ -100,6 +104,12 @@ jobs:
           path: target/
       - name: pack to compressd unity3d package
         run:  ./pack --release --input=cross --compress=zip
+      - name: generate output
+        run: |
+          echo "::set-output name=PKG_NAME::$(find . -type f -name 'com.shikulabs.ic-agent-*.zip' -execdir basename -s '.zip' {} + | tr _ .)"
+          echo "::set-output name=PKG_SHA1::$(sha1sum com.shikulabs.ic-agent-*.zip | awk '{ print $1 }')"
+          echo "::set-output name=PKG_VERSION::$(find . -type f -name 'com.shikulabs.ic-agent-*.zip' -execdir basename -s '.zip' {} + | grep -oE '[0-9]_[0-9]_[0-9].*' | tr _ .)"
+        id: pkg_info
       - name: upload unity3d-package
         uses: actions/upload-artifact@v3
         with:
@@ -118,10 +128,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: unity3d-package
-      - name: get unity3d package version
-        run: |
-          echo "::set-output name=PKG_VERSION::$(find . -type f -name 'com.shikulabs.ic-agent-*.zip' -execdir basename -s '.zip' {} + | grep -oE '[0-9]_[0-9]_[0-9].*' | tr _ .)"
-        id: version
       - name: unzip to current directory
         run: unzip -o *.zip
       - name: remove zip file
@@ -129,7 +135,7 @@ jobs:
       - name: commit to upm branch
         uses: EndBug/add-and-commit@v9
         with:
-          message: 🔖 ($UPM) bump version to `${{ steps.version.outputs.PKG_VERSION }}`
+          message: 🔖 ($UPM) bump version to `${{ needs.pack-to-unity3d-package.outputs.pkg_version }}`\nsha1 = ${{ needs.pack-to-unity3d-package.outputs.pkg_sha1 }}
           committer_name: GitHub Actions
           committer_email: actions@github.com
 
@@ -141,17 +147,12 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: unity3d-package
-      - name: get unity3d package info
-        run: |
-          echo "::set-output name=PKG_NAME::$(find . -type f -name 'com.shikulabs.ic-agent-*.zip' -execdir basename -s '.zip' {} + | tr _ .)"
-          echo "::set-output name=PKG_VERSION::$(find . -type f -name 'com.shikulabs.ic-agent-*.zip' -execdir basename -s '.zip' {} + | grep -oE '[0-9]_[0-9]_[0-9].*' | tr _ .)"
-        id: pkg_info
       - name: publish to release page
         uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ steps.pkg_info.outputs.PKG_VERSION }}
+          automatic_release_tag: ${{ needs.pack-to-unity3d-package.outputs.pkg_version }}
           prerelease: true
-          title: ${{ steps.pkg_info.outputs.PKG_NAME }}
+          title: ${{ needs.pack-to-unity3d-package.outputs.pkg_name }}
           files: |
             *.zip
