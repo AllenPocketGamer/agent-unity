@@ -141,7 +141,7 @@ jobs:
       - name: commit to upm branch
         uses: EndBug/add-and-commit@v9
         with:
-          message: 🔖 ($UPM) bump version to `${{ needs.pack-to-unity3d-package.outputs.pkg_version }}-${{ needs.pack-to-unity3d-package.outputs.pkg_sha1 }}`
+          message: 🔖 ($UPM) bump version to `${{ needs.pack-to-unity3d-package.outputs.pkg_version }}`
           committer_name: GitHub Actions
           committer_email: actions@github.com
 
